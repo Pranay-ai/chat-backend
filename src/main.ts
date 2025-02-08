@@ -5,7 +5,6 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
   }));
@@ -13,8 +12,16 @@ async function bootstrap() {
   .setTitle('Your API')
   .setDescription('API description')
   .setVersion('1.0')
-  .addBearerAuth()
+  .addBearerAuth(
+    {
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT', // Optional but recommended
+    },
+    'access-token', // This is the security name reference
+  )
   .build();
+
   
 const document = SwaggerModule.createDocument(app, config);
 SwaggerModule.setup('apidocs', app, document);

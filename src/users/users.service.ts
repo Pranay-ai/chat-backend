@@ -98,8 +98,32 @@ export class UsersService {
         accessToken
       }
     }
+  }
 
 
+
+
+
+  async updateUser(id: string, user: UpdateUserDto){
+
+    const userExist= await this.userRepository.findOneById(id);
+
+    if(!userExist){
+      throw new BadRequestException('User Not Found');
+    }
+
+    const updatedUser= Object.assign(userExist, user);
+
+    const result= await this.userRepository.save(updatedUser);
+
+
+
+    return {
+      message: 'User Updated Successfully',
+      status: true,
+      statusCode: 200,
+      data: result
+    }
 
   }
 

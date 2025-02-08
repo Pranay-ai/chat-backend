@@ -12,6 +12,8 @@ export class CurrentUserMiddleware implements NestMiddleware{
 
     async use(req: any, res: any, next: () => void){
 
+        console.log('Current User Middleware');
+
         const authHeader= req.headers.authorization || req.headers.Authorization;
         if(!authHeader || isArray(authHeader) || !authHeader.startsWith('Bearer ')){
             req.currentUser=null;
@@ -23,12 +25,14 @@ export class CurrentUserMiddleware implements NestMiddleware{
                 const {id}= <JwtPayload> verify(token, JWT_SECRET)
                 console.log(id);
                 const cUser= await this.userService.findOne(id)
-                req.currentUser=cUser;
+                req.currentUser=cUser.data.id;
               } catch (error) {
                    req.currentUser=null;
                    
               }
         }
+
+        next();
 
 
     }
