@@ -22,4 +22,7 @@ export class User extends BaseEntity {
 
     @Column({nullable: true})
     profilePicture: string
+
+    @Column({default: false})
+    emailVerified: boolean;
 }

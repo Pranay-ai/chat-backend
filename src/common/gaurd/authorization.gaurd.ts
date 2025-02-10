@@ -4,6 +4,7 @@ import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
 export class IsSameUserGuard implements CanActivate {
     canActivate(context: ExecutionContext): boolean {
         const request = context.switchToHttp().getRequest();
+        
 
         try {
             const userIdFromToken = request.currentUser; // Assuming `currentUser` is set by authentication middleware
