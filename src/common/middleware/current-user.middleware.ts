@@ -16,6 +16,7 @@ export class CurrentUserMiddleware implements NestMiddleware {
     // Extract token from the cookie header
     const tokenMatch = rawCookie.match(/token=([^;]*)/);
     const token = tokenMatch ? tokenMatch[1] : null;
+    console.log("token", token);
 
     if (!token) {
       req.currentUser = null;
@@ -28,6 +29,7 @@ export class CurrentUserMiddleware implements NestMiddleware {
 
 
       const user = await this.userRepository.findOneById(id);
+      console.log("user", user);
       if (!user) {
         req.currentUser = null;
       } else {

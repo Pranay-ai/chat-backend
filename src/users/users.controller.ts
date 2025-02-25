@@ -64,8 +64,6 @@ export class UsersController {
   ) {
 
 
-
-
     const newUser: UserSignUpDto = { ...userSignUpDto, profilePicture: '' };
 
     if (file) {
@@ -97,11 +95,14 @@ export class UsersController {
   @UseGuards(AuthenticationGaurd)
   @Get('me')
   async getMe(@CurrentUser() user, @Response() res) {
+
+    const { password, ...userWithoutPassword } = user;
+
     return res.status(200).json({
       message: 'User details fetched successfully',
       status: true,
       statusCode: 200,
-      data: user,
+      data: userWithoutPassword,
     });
   }
 
@@ -113,18 +114,48 @@ export class UsersController {
 
   @UseGuards(AuthenticationGaurd, IsSameUserGuard)
   @Patch('update-user/:id')
+  @UseInterceptors(
+    FileInterceptor('profilePicture', {
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
+          callback(new Error('Only image files are allowed!'), false);
+        } else {
+          callback(null, true);
+        }
+      },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
+        profilePicture: { type: 'string', format: 'binary' },
         displayName: { type: 'string' },
         firstName: { type: 'string' },
         lastName: { type: 'string' },
       },
     },
   })
-  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @Response() res) {
-    return this.usersService.update(id, updateUserDto, res);
+
+  async update(
+    @Param('id') id: string,
+    @Body() updateUserDto: UpdateUserDto,
+    @UploadedFile() file: Express.Multer.File,
+    @Response() res
+  ) {
+    const updatedData: UpdateUserDto = { ...updateUserDto };
+  
+    if (file) {
+      const fileUrl = await this.awsFileService.uploadFile(
+        file.buffer,
+        updateUserDto.displayName || id, // Fallback to ID if no display name
+        file.mimetype
+      );
+      updatedData.profilePicture = fileUrl;
+    }
+  
+    return this.usersService.update(id, updatedData, res);
   }
 
   @UseGuards(AuthenticationGaurd, IsSameUserGuard)
@@ -164,5 +195,29 @@ export class UsersController {
   })
   async verifyOtp(@Param('id') id: string, @Body('otp') otp: string, @Response() res) {
     return this.usersService.verifyOtp(id, otp, res);
+  }
+
+  @Post('forgot-password/:email')
+  async forgotPassword(@Param('email') email: string, @Response() res) {
+    return this.usersService.generatePasswordResetLink(email, res);
+  }
+
+  @Post('reset-password/:token')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        newPassword: { type: 'string' },
+      },
+    },
+  })
+  async resetPassword(@Param('token') token: string, @Body('newPassword') newPassword: string, @Response() res) {
+    return this.usersService.resetPassword(token, newPassword, res);
+  }
+
+  @UseGuards(AuthenticationGaurd)
+  @Get('search/:displayName')
+  async searchUsers(@Param('displayName') displayName: string, @Response() res) {
+    return this.usersService.searchUsersByDisplayName(displayName, res);
   }
 }

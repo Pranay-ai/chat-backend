@@ -11,9 +11,9 @@ import { AuthService } from 'src/common/utilities/Auth.service';
 
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User])],
-  controllers: [UsersController, ],
-  providers: [UsersService, UserRespository, AWSFileService, RedisService, EmailService, AuthService],
+  imports: [TypeOrmModule.forFeature([User]),],
+  controllers: [UsersController ],
+  providers: [UsersService, UserRespository,AWSFileService, RedisService, EmailService, AuthService ],
   exports: [UsersService, UserRespository]
 })
 export class UsersModule {}

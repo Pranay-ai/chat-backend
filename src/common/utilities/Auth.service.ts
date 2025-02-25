@@ -5,6 +5,7 @@ import { UserRespository } from "src/users/user.repository";
 import { User } from "src/users/entities/user.entity";
 import { UsersService } from "src/users/users.service";
 
+
 @Injectable()
 export class AuthService{
 
@@ -23,12 +24,8 @@ export class AuthService{
         if (!user) {
             return {message: 'User not found', status: false, statusCode: 404};
         }
-
-
         // delete any existing OTP for the email
         await this.redisService.delete(id);
-
-        
 
         const otp = this.generateOtp();
 
@@ -103,5 +100,60 @@ export class AuthService{
     
         return { message: 'OTP verified successfully', status: true, statusCode: 200 };
     }
+
+    async sendResetPasswordEmail(email: string, resetToken: string) {
+        const user = await this.userRepository.findByEmail(email);
+        if (!user) {
+            return { message: 'User not found', status: false, statusCode: 404 };
+        }
+    
+        await this.emailService.sendEmail(
+            email,
+            'Chatter App Password Reset',
+            await this.generateResetPasswordTemplate(user.email, resetToken)
+        );
+    
+        return { message: 'Reset password email sent successfully', status: true, statusCode: 200 };
+    }
+
+    async generateResetPasswordTemplate(email: string, resetToken: string): Promise<string> {
+        // Fetch user details (assuming firstName & lastName exist)
+        const user = await this.userRepository.findByEmail(email);
+        if (!user) throw new Error('User not found');
+    
+        const { firstName, lastName } = user;
+        const frontendDomain = process.env.FRONTEND_URL; // Ensure this is set in your environment variables
+        const resetPasswordLink = `${frontendDomain}/reset-password/${resetToken}`;
+        const expiryTime = 30; // Reset password link expires in 30 minutes
+    
+        return `
+            <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto;">
+                <h2 style="color: #333;">Hello ${firstName} ${lastName},</h2>
+                <p style="font-size: 16px; color: #555;">
+                    You recently requested to reset your password for <strong>Chatter App</strong>. Click the button below to reset it:
+                </p>
+                <div style="text-align: center; margin: 20px 0;">
+                    <a href="${resetPasswordLink}" style="background-color: #007bff; color: white; text-decoration: none; padding: 10px 20px; border-radius: 5px; font-size: 18px; display: inline-block;">
+                        Reset Password
+                    </a>
+                </div>
+                <p style="font-size: 14px; color: #888;">
+                    This reset password link is valid for <strong>${expiryTime} minutes</strong>. If you did not request this, please ignore this email.
+                </p>
+                <hr style="border: none; border-top: 1px solid #ddd;" />
+                <p style="font-size: 12px; color: #999;">
+                    Regards, <br>
+                    <strong>Chatter App Team</strong>
+                </p>
+            </div>
+        `;
+    }
+
+
+
+
+
+    
+    
     
 }

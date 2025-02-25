@@ -7,7 +7,7 @@ export class IsSameUserGuard implements CanActivate {
         
 
         try {
-            const userIdFromToken = request.currentUser; // Assuming `currentUser` is set by authentication middleware
+            const userIdFromToken = request.currentUser.id; // Assuming `currentUser` is set by authentication middleware
             const userIdFromParam = request.params.id; // Extract from request params
 
             return userIdFromToken === userIdFromParam; // Compare both values

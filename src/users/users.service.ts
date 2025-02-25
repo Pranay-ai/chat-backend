@@ -5,7 +5,7 @@ import { UserSignUpDto } from './dto/sign-up.dto';
 import { hash, compare } from 'bcrypt';
 import { User } from './entities/user.entity';
 import { UserSignInDto } from './dto/sign-in.dto';
-import { PrivateKey, sign } from 'jsonwebtoken';
+import { PrivateKey, Secret, sign, verify } from 'jsonwebtoken';
 import { AuthService } from 'src/common/utilities/Auth.service';
 
 @Injectable()
@@ -54,7 +54,7 @@ export class UsersService {
         });
       }
 
-      const { password, ...result } = user;
+      const { password, email, ...result } = user;
       return res.status(200).json({
         message: 'User Found',
         status: true,
@@ -136,10 +136,10 @@ export class UsersService {
 
     const accessToken = await this.generateAccessToken(iuser);
 
-    res.cookie("token", accessToken, {
+    res.cookie('token', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "Strict",
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Strict',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -157,7 +157,12 @@ export class UsersService {
     });
   }
 
-  async updatePassword(id: string, currentPassword: string, newPassword: string, @Response() res) {
+  async updatePassword(
+    id: string,
+    currentPassword: string,
+    newPassword: string,
+    @Response() res,
+  ) {
     const user = await this.userRepository.findOneById(id);
 
     if (!user) {
@@ -189,8 +194,114 @@ export class UsersService {
     });
   }
 
+  async generatePasswordResetLink(email: string, @Response() res) {
+    const user = await this.userRepository.findByEmail(email);
+
+    if (!user) {
+      return res.status(404).json({
+        message: 'User With This Email Does Not Exist',
+        status: false,
+        statusCode: 404,
+      });
+    }
+
+    const resetToken = await this.generateAccessToken(user);
+
+    try {
+      await this.authService.sendResetPasswordEmail(email, resetToken);
+      return res.status(200).json({
+        message: 'Reset Password Email Sent Successfully',
+        status: true,
+        statusCode: 200,
+      });
+    } catch (error) {
+      return res.status(400).json({
+        message: 'Failed to send email',
+        status: false,
+        statusCode: 400,
+      });
+    }
+  }
+
+  async resetPassword(token: string, newPassword: string, @Response() res) {
+    const payload = await this.verifyResetToken(token);
+
+    if (!payload) {
+      return res.status(400).json({
+        message: 'Invalid Token',
+        status: false,
+        statusCode: 400,
+      });
+    }
+
+    const user = await this.userRepository.findOneById(payload.id);
+
+    if (!user) {
+      return res.status(404).json({
+        message: 'User Not Found',
+        status: false,
+        statusCode: 404,
+      });
+    }
+
+    user.password = await hash(newPassword, 10);
+    const { password, ...result } = await this.userRepository.save(user);
+
+    return res.status(200).json({
+      message: 'Password Reset Successfully',
+      status: true,
+      statusCode: 200,
+      data: result,
+    });
+  }
+
+  async verifyResetToken(token: string): Promise<JwtPayload> {
+    try {
+      const decoded: JwtPayload = verify(
+        token,
+        process.env.JWT_SECRET as Secret,
+      ) as JwtPayload;
+      return decoded;
+    } catch (error) {
+      throw new Error('Invalid or expired token');
+    }
+  }
+  async searchUsersByDisplayName(displayName: string, @Response() res): Promise<User[]> {  // Added limit parameter
+    try {
+      const users = await this.userRepository.findUsersByDisplayName(displayName, 5); // Pass the limit to the repository method
+
+      if (!users || users.length === 0) {
+        // Handle the case where no users are found (optional)
+        // You can throw an exception or return an empty array.
+        // For this example, I'll return an empty array:
+        return  res.status(404).json({
+          message: 'No users found with display name',
+          status: false,
+          statusCode: 404,
+        });
+
+        // Or you can throw an exception like this:
+        // throw new NotFoundException(`No users found with display name: ${displayName}`);
+      }
+
+      return res.status(200).json({
+        message: 'Users found with display name',
+        status: true,
+        statusCode: 200,
+        data: users,
+      });
+    } catch (error) {
+      // Handle any potential errors (e.g., database errors)
+      console.error("Error searching users:", error);
+      throw error; // Re-throw the error for proper handling in the controller
+    }
+  }
+
+
+
+
   async generateOtp(id: string, @Response() res) {
-    const otp = await this.authService.sendOtp(id);
+    await this.authService.sendOtp(id);
     return res.status(200).json({
       message: 'OTP Sent Successfully',
       status: true,
@@ -217,7 +328,7 @@ export class UsersService {
   }
 
   async signOut(@Response() res) {
-    res.clearCookie("token");
+    res.clearCookie('token');
     return res.status(200).json({
       message: 'Logged out successfully',
       status: true,
@@ -226,7 +337,14 @@ export class UsersService {
   }
 
   async generateAccessToken(user: User) {
-    const payload = { id: user.id, email: user.email };
-    return sign(payload, process.env.JWT_SECRET as PrivateKey, { expiresIn: '1h' });
+    const payload: JwtPayload = { id: user.id, email: user.email };
+    return sign(payload, process.env.JWT_SECRET as PrivateKey, {
+      expiresIn: '1h',
+    });
   }
+}
+
+interface JwtPayload {
+  id: string;
+  email: string;
 }

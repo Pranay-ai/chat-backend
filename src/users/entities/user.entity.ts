@@ -1,7 +1,5 @@
 import { BaseEntity } from "src/common/db-entity/base.entity";
-import { Column, Entity } from "typeorm";
-import { Url } from "url";
-
+import { Column, Entity, OneToMany } from "typeorm";
 @Entity('users')
 export class User extends BaseEntity {
 
@@ -25,4 +23,5 @@ export class User extends BaseEntity {
 
     @Column({default: false})
     emailVerified: boolean;
+
 }
